@@ -10,7 +10,7 @@ numpy
 h5py
 mpi4py
 ```
-While mpi4py is not strictly necessary for the running of the code (and the code can be run in serial), for efficiencies sake we suggest taking advantage of mpi functionality.
+While mpi4py is not strictly necessary for the running of the code (and the code can be run in serial), for efficiencies sake we suggest taking advantage of the mpi functionality.
 
 # Example execution
 If you run the python file, you can set the parameters of the starting point q0, tmin, tmax and true value a, of the simulation, as well as set an initial bayesian prior (via avec and arho). Then there are three cases to run the code:
