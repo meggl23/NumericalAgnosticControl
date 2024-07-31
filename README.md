@@ -14,7 +14,7 @@ While mpi4py is not strictly necessary for the running of the code (and the code
 
 # Example execution
 If you run the python file, you can set the parameters of the starting point q0, tmin, tmax and true value a of the simulation, as well as set an initial bayesian prior (via avec and arho). Then there are three cases to run the code:
- - Case 1: Just a direct solve given a true value of a given a bayesian prior
+ - Case 1: Just a direct solve for a true value of a and given a bayesian prior
  - Case 2: Loop over a set of a (currently hard-coded to be from -10 to 1) to evaluate the regret given a bayesian prior
  - Case 3: Use the newton solver to optimise a given bayesian prior.
 
