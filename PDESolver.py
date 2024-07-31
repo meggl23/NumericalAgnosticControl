@@ -1852,7 +1852,7 @@ def EgRun(params,grid,case):
     
     if (case==0):
         
-        print(avec)
+        print(params.avec)
         Sh,S,S0 = SingleSolve(avec,arho,grid,params)
         
         para_regvec = CalculateRegret(S,S0,grid)
