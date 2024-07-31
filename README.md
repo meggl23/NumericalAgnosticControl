@@ -21,6 +21,9 @@ If you run the python file, you can set the parameters of the starting point q0,
 Then you can run the code as:
 ```
 python PDESolver.py
+```
+or 
+```
 mpirun -n x python PDESolver.py
 ```
 where x refers to the number of cores you want to utilise.
