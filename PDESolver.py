@@ -1889,20 +1889,7 @@ def EgRun(params,grid,case):
             iq  = grid.num_q//2
             ix1 = grid.num_x1//2
             ix2 = 0   
-            Shvec  = comm.gather(Sh[iq,ix1,ix2],root=0)
-            Svec   = comm.gather(S[iq,ix1,ix2],root=0)
-            regvec = comm.gather(regret,root=0)
-            avec   = comm.gather(params.a,root=0)
-
-
-        
-        if (rank==0):
-            print('SL = ',Shvec)
-            print('SC = ',Svec)
-            print('reg = ',regvec)
-            print('a = ',avec)
-            toc = time.perf_counter()
-            print('time taken (in hours): ',(toc-tic)/3600)
+            print(f'a = {params.a},regret={regret}')
     else:
 
         if rank==0: print("Doing a Newton run for T=",tmax)
