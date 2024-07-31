@@ -1853,7 +1853,7 @@ def EgRun(params,grid,case):
     if (case==0):
         
         print(params.avec)
-        Sh,S,S0 = SingleSolve(avec,arho,grid,params)
+        Sh,S,S0 = SingleSolve(params.avec,params.arho,grid,params)
         
         para_regvec = CalculateRegret(S,S0,grid)
 
@@ -1880,7 +1880,7 @@ def EgRun(params,grid,case):
             if ((rank+(ii-1)*size)<natrue):
                 print('Working on a = ',atruevec[rank+(ii-1)*size])
                 params.a = atruevec[rank+(ii-1)*size]
-                Sh,S,S0  = SingleSolve(avec,arho,grid,params)
+                Sh,S,S0  = SingleSolve(params.avec,params.arho,grid,params)
                 regret   = CalculateRegret(S,S0,grid)
             else:
                 Sh       = 0.
