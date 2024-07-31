@@ -1,7 +1,7 @@
 # Numerical Agnostic Control
 Numerical treatment of the system described in https://arxiv.org/pdf/2309.10138 and https://arxiv.org/pdf/2309.10142
 
-This GitHub repository provides the code-base to solve the PDE system introduced in [our previous paper](https://ems.press/content/serial-article-files/39113) or the preprint of the [current publication](https://arxiv.org/pdf/2309.10138). As part of this code-base we have provided a python code (PDESolver) that both solves the PDE and optimises the bayesian prior using the Newton-raphsom method as well as a demonstrative jupyter-notebook that describes the underlying methodology. 
+This GitHub repository provides the code-base to solve the PDE system introduced the [current pre-print](https://arxiv.org/pdf/2309.10138). As part of this code-base we have provided a python code (PDESolver) that both solves the PDE and optimises the bayesian prior using the Newton-raphsom method as well as a demonstrative jupyter-notebook that describes the underlying methodology. 
 
 ## Dependencies
 The following packages need to be installed to run the code.
