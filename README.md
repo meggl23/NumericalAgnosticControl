@@ -13,7 +13,7 @@ mpi4py
 While mpi4py is not strictly necessary for the running of the code (and the code can be run in serial), for efficiencies sake we suggest taking advantage of the mpi functionality.
 
 # Example execution
-If you run the python file, you can set the parameters of the starting point q0, tmin, tmax and true value a, of the simulation, as well as set an initial bayesian prior (via avec and arho). Then there are three cases to run the code:
+If you run the python file, you can set the parameters of the starting point q0, tmin, tmax and true value a of the simulation, as well as set an initial bayesian prior (via avec and arho). Then there are three cases to run the code:
  - Case 1: Just a direct solve given a true value of a given a bayesian prior
  - Case 2: Loop over a set of a (currently hard-coded to be from -10 to 1) to evaluate the regret given a bayesian prior
  - Case 3: Use the newton solver to optimise a given bayesian prior.
