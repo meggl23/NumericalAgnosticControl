@@ -7,14 +7,14 @@ Amlan Sinha
 August 2020
 '''
 
-from mpi4py import MPI
-
-import numpy as np
-import sys
-import h5py
-import time
 import itertools
 import os
+import sys
+import time
+
+import h5py
+import numpy as np
+from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
 
@@ -727,7 +727,7 @@ def SingleSolve(avec,arho,grid,params,writeflag=0):
         
         ti   = tvec[i]
         
-        if(rank==0 and i%200==0): print('i = %f\tt = %f'%(i,ti))
+        # if(rank==0 and i%200==0): print('i = %f\tt = %f'%(i,ti))
         
         if ((writeflag==1) and (i%200==0)):
             f = h5py.File('./results/Sh/Sh_'+str(i).zfill(5)+'.h5', 'w')
@@ -1451,7 +1451,10 @@ class NewtonSolver:
         eps = self.eps
         Direction = np.ones(3)
         regretvec = np.zeros(16)
+        iter = 1
         while((sum(abs(Direction)))>tol):
+            print(f"Iteration {iter}:")
+            iter += 1
             true_a = np.copy(a_val)
             p_crit = a_prob[1]
 
@@ -1481,7 +1484,7 @@ class NewtonSolver:
                     regretvec[selection[j+i*size]] = regretvec_temp[j] 
                 i=i+1
 
-            if rank==0: print(regretvec)
+            # if rank==0: print(regretvec)
 
             F2 = (regretvec[9]-regretvec[8])/(eps)
 
@@ -1507,14 +1510,15 @@ class NewtonSolver:
             # Working out direction given by : f/df where f = dR/da = 0 at a_1
             #Direction = dRda/d2Rdadap
             Direction =  np.linalg.inv(Jac) @ Func
-            if rank==0:
-                print(Direction)
-            if rank==0: print("before update: ap =",true_a[1],"am =",true_a[0], ", p = ",p_crit)
             a_val[1] = true_a[1]
             a_val[0] = true_a[0] - Direction[0]
             a_prob[1]  = np.clip(p_crit  - Direction[1],0,0.99) #so that some probability gets assigned to the positive value
             a_prob[0]  = 1-a_prob[1] 
-            if rank==0: print("after update: ap =",a_val[1],"am =",a_val[0], ", p = ",a_prob[1])
+            if rank==0:
+                # print(Direction)
+                print(f"  residual = {sum(abs(Func))}")
+                print(f"  before update: ap = {true_a[1]}, am = {true_a[0]}, p = {p_crit}")
+                print(f"  after update:  ap = {a_val[1]}, am = {a_val[0]}, p = {a_prob[1]}")
 
         return a_val,a_prob,regretvec[0]
 
