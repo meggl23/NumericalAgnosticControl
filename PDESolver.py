@@ -686,6 +686,9 @@ def SingleSolve(avec,arho,grid,params,writeflag=0):
     tpts    = grid.num_t
     tvec    = grid.tvec
     dt      = grid.dt
+
+    params.avec = avec
+    params.arho = arho
     
     # abar
     field   = Field(grid,params)    
