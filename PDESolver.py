@@ -14,9 +14,6 @@ import time
 
 import h5py
 import numpy as np
-from mpi4py import MPI
-
-comm = MPI.COMM_WORLD
 
 __all__ = ["SingleSolve","CalculateRegret"]
 
@@ -679,8 +676,8 @@ def SingleSolve(avec,arho,grid,params,writeflag=0):
     Returns:
         tuple: Final value of fields Sh, S, and S0.
     """
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+    rank = 0
+    size = 1
     
     # Extracting the components of the time array
     tpts    = grid.num_t
@@ -835,8 +832,8 @@ class NewtonSolver:
         """
 
 
-        rank = comm.Get_rank()
-        size = comm.Get_size()
+        rank = 0
+        size = 1
         
         tol = self.tol
         eps = self.eps
@@ -914,7 +911,8 @@ class NewtonSolver:
 
                 regret    = CalculateRegret(S,S0,grid)
                 
-                comm.Allgather(regret,regretvec_temp)
+                # comm.Allgather(regret,regretvec_temp)
+                regretvec_temp = regret
 
                 for j in range(size):
                     regretvec[test_indx[j+i*size]] = regretvec_temp[j] 
@@ -1190,8 +1188,8 @@ class NewtonSolver:
             tuple: Updated a_val, a_prob, and regret.
         """
         
-        rank = comm.Get_rank()
-        size = comm.Get_size()
+        rank = 0
+        size = 1
         
         tol = self.tol
         eps = self.eps
@@ -1255,7 +1253,8 @@ class NewtonSolver:
 
                 regret    = CalculateRegret(S,S0,grid)
                 
-                comm.Allgather(regret,regretvec_temp)
+                # comm.Allgather(regret,regretvec_temp)
+                regretvec_temp = regret
                 for j in range(size):
                     regretvec[test_indx[j+i*size]] = regretvec_temp[j] 
                 i=i+1
@@ -1444,8 +1443,8 @@ class NewtonSolver:
         """
 
         
-        rank = comm.Get_rank()
-        size = comm.Get_size()
+        rank = 0
+        size = 1
         
         tol = self.tol
         eps = self.eps
@@ -1479,7 +1478,8 @@ class NewtonSolver:
 
                 regret    = CalculateRegret(S,S0,grid)
                 
-                comm.Allgather(regret,regretvec_temp)
+                # comm.Allgather(regret,regretvec_temp)
+                regretvec_temp = [regret]
                 for j in range(size):
                     regretvec[selection[j+i*size]] = regretvec_temp[j] 
                 i=i+1
@@ -1538,8 +1538,8 @@ class NewtonSolver:
             tuple: Updated a_val, a_prob, and regret.
         """
 
-        rank = comm.Get_rank()
-        size = comm.Get_size()
+        rank = 0
+        size = 1
         
         na = len(a_val)
 
@@ -1587,7 +1587,8 @@ class NewtonSolver:
                     regret    = CalculateRegret(S,S0,grid)
                     if np.isnan(regret).any(): sys.exit() #Failsafe
 
-                comm.Allgather(regret,regretvec_temp)
+                # comm.Allgather(regret,regretvec_temp)
+                regretvec_temp = regret
                 regretvec.append(regretvec_temp)
 
 
@@ -1849,8 +1850,8 @@ def CalculateRegret(S,S0,grid):
 def EgRun(params,grid,case):
     
 
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+    rank = 0
+    size = 1
     
     if (rank==0):
         tic  = time.perf_counter()
