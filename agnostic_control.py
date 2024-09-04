@@ -14,6 +14,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 from tqdm import tqdm
 
+DEBUG = False
+
 # A Field is a variable defined on a grid of size (nq, nx1, nx2)
 Field = np.ndarray
 
@@ -67,8 +69,8 @@ class Prior:
     """Define a prior probability distribution with support at n values of a"""
 
     def __init__(self, a: ArrayLike, p: ArrayLike):
-        self.a = np.array(a)
-        self.p = np.array(p)
+        self.a = np.array(a, dtype=float)
+        self.p = np.array(p, dtype=float)
         assert len(self.a) == len(self.p)
         # ensure probabilities are positive and sum to one
         self.p = np.abs(self.p)
@@ -80,6 +82,42 @@ class Prior:
 
     def __len__(self):
         return len(self.a)
+
+    def __str__(self):
+        return "\n".join([f"a = {a:6.3f}, p = {p:.3f}" for a, p in self])
+
+    def to_vec(self, fixed_inds: list | None = None) -> np.ndarray:
+        """Return a numpy array of parameters in the given Prior
+        
+        The resulting vector is for use in optimizing a prior, e.g., with a
+        Newton search
+        
+        fixed_inds, if specified, denotes a list of indices of `a` values that
+        are regarded as fixed, thus not included in the parameters
+        """
+        if fixed_inds is None:
+            fixed_inds = []
+        num_p = len(self) - 1  # probabilities sum to 1
+        num_a = len(self) - len(fixed_inds)
+        params = np.zeros(num_p + num_a, dtype=float)
+        params[:num_p] = self.p[:-1]
+        a_variables = [self.a[i] for i in range(len(self)) if i not in fixed_inds]
+        params[num_p:] = a_variables
+        return params
+
+    def from_vec(self, vec: np.ndarray, fixed_inds: list | None = None):
+        """Update the parameters with values in the given vector `vec` """
+        n = len(self)
+        p = np.zeros(n)
+        p[:-1] = vec[:n-1]
+        p[-1] = 1 - np.sum(p)
+        a = self.a.copy()
+        ind = n - 1
+        for i in range(n):
+            if i not in fixed_inds:
+                a[i] = vec[ind]
+                ind += 1
+        return self.__class__(a, p)
 
 
 def calculate_abar(grid: Grid, prior: Prior, t: float) -> Field:
@@ -107,6 +145,7 @@ def optimal_cost(a: float, q: float | np.ndarray, t: float, tmax: float) -> floa
         p(T) = r(T) = 0
         -p' = 2 a p + 1 - p^2
         -r' = p
+    This routine uses an exact solution for the above ODEs
     """
     c = np.sqrt(1 + a**2)
     d = np.arctanh(a / c)
@@ -208,6 +247,8 @@ def expected_cost(grid: Grid, prior: Prior, nsteps: int, tmax: float) -> np.ndar
     of the cost J at each step.
     Return the array J[time, q, x1, x2]
     """
+    if DEBUG:
+        print(f"Computing expected cost for prior a = {prior.a}, p = {prior.p}")
     dt = tmax / nsteps
     rhs = functools.partial(rhs_expected_cost, grid, prior)
     shape = (nsteps + 1,) + grid.shape
@@ -259,7 +300,7 @@ def regret_from_cost(grid: Grid, cost: Field, a: float, tmax: float, epsilon: fl
     """
     J0 = cost[grid.origin]
     opt_cost = optimal_cost(a, 0, 0, tmax)
-    regret = (J0 + epsilon) / (opt_cost + epsilon)
+    regret = J0 / (opt_cost + epsilon)
     return regret
 
 def calculate_regret(grid: Grid, tmax: float, u: np.ndarray, a:float) -> float:
@@ -287,12 +328,140 @@ def calculate_regret_vals(grid: Grid,
                 pbar.update()
     return np.array(regret_vals)
 
+def calculate_residual(grid: Grid,
+                       prior: Prior,
+                       nsteps: int,
+                       tmax: float,
+                       fixed_inds: list | None = None,
+                       da: float = 1.e-3) -> np.ndarray:
+    """Calculate the residual for the given prior, for use with Newton solver
+
+    fixed_inds: if specified, values of a at these indices are kept fixed,
+                and derivatives at these values are not included in the residual
+    
+    The regret should be equal at all values of a in the support of the prior.
+    If there are n values of a in the prior, then there are n - 1 elements
+    of the residual vector consisting of regret(i) - regret(n) (for i=1..n-1)
+    
+    In addition, the regret should be a local maximum at these values of a,
+    so if there are `m` values of a that are varied (m = n - #fixed_inds), then
+    there are `m` elements of the residual vector consisting of the
+    derivative of regret with respect to a.
+    """
+    if DEBUG:
+        print(f"Calculating residual for prior a = {prior.a}, p = {prior.p}")
+    if fixed_inds is None:
+        fixed_inds = []
+    # compute optimal strategy for the given prior
+    J_expected = expected_cost(grid, prior, nsteps, tmax)
+    u_opt = optimal_control(grid, J_expected)
+    # evaluate regret at each value of a in the prior
+    n = len(prior)
+    a_vals = list(prior.a)
+    # evaluate derivative of regret w.r.t. a for each value of a that varies
+    da = 1.e-5
+    variable_inds = [i for i in range(n) if i not in fixed_inds]
+    a_perturbs = [a_vals[i] + da for i in variable_inds]
+    regret_vals = calculate_regret_vals(grid, tmax, u_opt, a_vals + a_perturbs)
+    # regret should be equal at each value of a: residual is the difference
+    residual = np.zeros(n - 1 + len(variable_inds))
+    residual[:n-1] = regret_vals[:n-1] - regret_vals[n-1]
+    for i, j in enumerate(variable_inds):
+        residual[n - 1 + i] = (regret_vals[n + i] - regret_vals[j]) / da
+    if DEBUG:
+        print(f"    a_vals = {a_vals + a_perturbs}")
+        print(f"    regret_vals = {regret_vals}")
+        print(f"    residual = {residual}")
+    return residual
+
+def approx_jacob(func: Callable[[np.ndarray], np.ndarray],
+                 x0: np.ndarray,
+                 dx: float = 1.e-4,
+                 y0: np.ndarray | None = None) -> np.ndarray:
+    """Approximate the Jacobian matrix of func at the point x0
+    
+    dx is the size of perturbation used to approximate partial derivatives
+    If y0 is specified, it should be equal to func(x0)
+    """
+    n = len(x0)
+    if y0 is None:
+        y0 = func(x0)
+    Df = np.zeros((n, n))
+    if DEBUG:
+        print(f"   x0 = {x0}")
+        print(f"   y0 = {y0}")
+    for i in range(n):
+        x = x0.copy()
+        x[i] += dx
+        Df[:, i] = (func(x) - y0) / dx
+        if DEBUG:
+            print(f"   i = {i}")
+            print(f"   x = {x}")
+            print(f"   Df_i = {Df[:,i]}")
+    return Df
+
+def newton_solve(func: Callable[[np.ndarray], np.ndarray],
+                 x0: np.ndarray,
+                 tol: float = 1.e-6,
+                 eps_jacob: float = 1.e-3,
+                 max_iterations: int = 50) -> np.ndarray:
+    """Use Newton iteration to iteratively find a zero of func(x)
+    
+    x0: the initial guess for x
+    tol: quit when |func(x)| < tol
+    eps_jacob: perturbation size used in approximating the Jacobian of func
+    """
+    x = x0.copy()
+    y = func(x)
+    for i in range(max_iterations):
+        residual = np.max(np.abs(y))
+        print(f"Iteration {i:2d}: residual = {residual:.3g}")
+        if residual < tol:
+            break
+        # y1 - y = Df(x) . (x1 - x)
+        # want x1 for which y1 = 0
+        # => x1 = x - Df(x)^-1 . y
+        jacobian = approx_jacob(func, x, dx=eps_jacob, y0=y)
+        if DEBUG:
+            print("x = ")
+            print(x)
+            print("jacobian = ")
+            print(jacobian)
+        x -= np.linalg.solve(jacobian, y)
+        y = func(x)
+    return x
+
+def optimize_prior(grid:Grid,
+                   prior: Prior,
+                   nsteps: int,
+                   tmax: float,
+                   fixed_inds: list | None = None,
+                   tol: float = 1.e-6,
+                   eps_jacob: float = 1.e-3) -> Prior:
+    """Iteratively update prior to minimize the worst-case regret
+    
+    fixed_inds, if specified, gives a list of indices in prior for which the
+    value of a is kept fixed.
+
+    For the optimum prior, the regret is equal at each value of a in the support
+    of the prior.
+    Furthermore, those values are critical points of the regret
+    (i.e., the derivative of regret with respect to a is zero)
+    """
+    params = prior.to_vec(fixed_inds)
+
+    def func(x: np.ndarray) -> np.ndarray:
+        new_prior = prior.from_vec(x, fixed_inds)
+        return calculate_residual(grid, new_prior, nsteps, tmax, fixed_inds)
+    
+    opt_params = newton_solve(func, params, tol=tol, eps_jacob=eps_jacob)
+    return prior.from_vec(opt_params, fixed_inds)
+
 def main():
     grid = Grid()
-    prior = Prior([-2, 1], [0.19, 0.81])
-    print(f"{len(prior)=}")
-    for a, p in prior:
-        print(f"  a = {a:5.2f}, p = {p:.2f}")
+    prior = Prior([-2., 1.], [0.8, 0.2])
+    print(f"Prior (length {len(prior)}):")
+    print(prior)
     print(grid)
 
     nsteps = 200
@@ -306,6 +475,16 @@ def main():
     regret_vals = calculate_regret_vals(grid, tmax, u_opt, a_vals)
     ind = np.argmax(regret_vals)
     print(f"Maximum regret: {regret_vals[ind]:.3f} at a = {a_vals[ind]:.3f}")
+
+    print("Optimizing prior with Newton solver")
+    new_prior = optimize_prior(grid, prior, nsteps, tmax, fixed_inds=[1,])
+    print("Optimized prior:")
+    print(new_prior)
+    J_expected2 = expected_cost(grid, new_prior, nsteps, tmax)
+    u_opt2 = optimal_control(grid, J_expected2)
+    regret_vals2 = calculate_regret_vals(grid, tmax, u_opt2, a_vals)
+    ind = np.argmax(regret_vals2)
+    print(f"Maximum regret: {regret_vals2[ind]:.5f} at a = {a_vals[ind]:.4f}")
 
 if __name__ == "__main__":
     main()
